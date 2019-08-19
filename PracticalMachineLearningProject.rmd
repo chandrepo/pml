@@ -1,0 +1,229 @@
+---
+title: "Practical Machine Learning Project"
+author: "Jayachand"
+date: "August 17, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Loading_Libraries}
+library(caret)
+library(rattle)
+```
+
+#
+```{r echo=FALSE, message=FALSE, warning=FALSE, Loading_Dataset}
+# Loading the DataSet
+TrainingData <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"),na.strings = c("NA", "#DIV/0!", ""),header=TRUE)
+dim(TrainingData)
+TestingData <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"),na.strings = c("NA", "#DIV/0!", ""),header=TRUE)
+dim(TestingData)
+```
+##Observations
+  1.  Traning dataset consists of 160 variables, with 19622 observations.
+  2.  Testing dataset consists of 160 variables, with 20 observations.
+  3.  There are missing variable values/observations.
+
+# The structure of Training dataset
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#The structure of Training dataset
+str(TrainingData)
+dim(TrainingData)
+```
+
+# The structure of Testing dataset
+```{r}
+#The structure of Testing dataset
+dim(TestingData)
+str(TestingData)
+```
+
+##Observations
+  1.  Traning dataset consists of 160 variables, with 19622 observations.
+  2.  Testing dataset consists of 160 variables, with 20 observations.
+  3.  There are missing variable values/observations.
+  
+##Cleaning Dataset
+
+  1. There are columns contains with NA value. These colums are removed in training and testing datasets.
+  2. The first seven columns are removed, as they gives the give information about the people who did the tests and these columns are not consider for the prediction.
+ 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+TrainingDataClean <- TrainingData[,(colSums(is.na(TrainingData)) == 0) ]
+TrainingDataClean <- TrainingDataClean[,-c(1:7)]
+dim(TrainingDataClean)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+TestingDataClean <- TestingData[,(colSums(is.na(TestingData)) == 0)]
+TestingDataClean <- TestingDataClean[,-c(1:7)]
+dim(TestingDataClean)
+
+```
+
+##After cleaning, Structure of Training dataset
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#After cleaning, Structure of Training dataset
+
+dim(TrainingDataClean)
+str(TrainingDataClean)
+
+```
+
+##After cleaning, Structure of Testing dataset
+
+```{r}
+
+#After cleaning, Structure of Testing dataset
+dim(TestingDataClean)
+str(TestingDataClean)
+
+```
+
+##Partitioning the Dataset
+The training dataset is Partitioned in 75/25 proportion and used for training and validation, .
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#creating a partition of the traning data set 
+set.seed(12345)
+Partitioned_TrainingDataClean <- createDataPartition(TrainingDataClean$classe, p=0.75, list=FALSE)
+Training_Data_Part <- TrainingDataClean[Partitioned_TrainingDataClean,]
+Testing_Data_Part <- TrainingDataClean[-Partitioned_TrainingDataClean,]
+
+```
+## Dimentiones after training dataset is Partition
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dim(Training_Data_Part)
+dim(Testing_Data_Part)
+```
+
+##Training with classification tree
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+trainCtrl <- trainControl(method="cv", number=5)
+modelCFT <- train(classe~., data=Training_Data_Part, method="rpart", trControl=trainCtrl)
+
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+
+fancyRpartPlot(modelCFT$finalModel)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+trainPrediction <- predict(modelCFT,newdata=Testing_Data_Part)
+
+confMatrixCFT <- confusionMatrix(Testing_Data_Part$classe,trainPrediction)
+
+# displaying confusion matrix and model accuracy
+confMatrixCFT$table
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+confMatrixCFT$overall[1]
+```
+It is observed that the accuracy of classification tree model is very low around 55%. 
+
+##Training with Random Forest
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+modelRandomForest <- train(classe~., data=Training_Data_Part, method="rf", trControl=trainCtrl, verbose=FALSE)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+print(modelRandomForest)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot(modelRandomForest,main="Accuracy of Random forest model by number of predictors")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+trainPrediction <- predict(modelRandomForest,newdata=Testing_Data_Part)
+
+confMatrixRandomForest <- confusionMatrix(Testing_Data_Part$classe,trainPrediction)
+
+# displaying confusion matrix and model accuracy
+confMatrixRandomForest$table
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+confMatrixRandomForest$overall[1]
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+names(modelRandomForest$finalModel)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+modelRandomForest$finalModel$classes
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot(modelRandomForest$finalModel,main="Model error of Random forest model by number of trees")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Displaying the impartant variables 
+ImportantVariables <- varImp(modelRandomForest)
+ImportantVariables
+
+```
+
+Random forest model giving the accuracy of 99.3% using cross-validation with 5 steps. 
+
+
+##Training with gradient boosting method
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+modelGBM <- train(classe~., data=Training_Data_Part, method="gbm", trControl=trainCtrl, verbose=FALSE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE }
+print(modelGBM)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot(modelGBM)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+trainPrediction <- predict(modelGBM,newdata=Testing_Data_Part)
+
+confMatrixGBM <- confusionMatrix(Testing_Data_Part$classe,trainPrediction)
+confMatrixGBM$table
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+confMatrixGBM$overall[1]
+```
+
+
+By observing all the models,the random forest model is the best one. So it can be used to predict the values of classe for the test data set.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+FinalTestingPrediction <- predict(modelRandomForest,newdata=TestingDataClean)
+FinalTestingPrediction
+```
+
+
+
+
+
+
